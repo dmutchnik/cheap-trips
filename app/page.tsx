@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { getCatalogStats, getRegionGroups, regions } from "@/lib/data/regions";
 
 export default function HomePage() {
+  const stats = getCatalogStats();
+  const groups = getRegionGroups();
+
   return (
     <div>
       <section className="hero">
@@ -24,16 +28,16 @@ export default function HomePage() {
 
         <div className="hero-grid">
           <div className="metric-card">
-            <strong>1</strong>
-            <p>adult traveler, round-trip economy, U.S. departure airports.</p>
+            <strong>{stats.totalOriginAirports}</strong>
+            <p>U.S. origin airports already modeled in the catalog.</p>
           </div>
           <div className="metric-card">
-            <strong>Hourly</strong>
-            <p>watch scanning via Inngest cron plus manual run-now support in the dashboard.</p>
+            <strong>{stats.totalRegions}</strong>
+            <p>destination regions spanning {groups.join(", ")}.</p>
           </div>
           <div className="metric-card">
-            <strong>Regions</strong>
-            <p>Predefined region sets like South America, Central America, and Andes Cities.</p>
+            <strong>{stats.totalDestinationAirports}</strong>
+            <p>destination airports across {stats.totalCountries} countries.</p>
           </div>
         </div>
       </section>
@@ -47,6 +51,14 @@ export default function HomePage() {
           <h2>What it does not do</h2>
           <p>No scraping, no payment-card storage, and no fully automated purchase flow in v1.</p>
         </article>
+        {regions.slice(0, 4).map((region) => (
+          <article className="list-card" key={region.id}>
+            <span className="status-chip">{region.group}</span>
+            <h2>{region.name}</h2>
+            <p>{region.summary}</p>
+            <p className="muted-text">Spotlight: {region.spotlightCities.join(", ")}</p>
+          </article>
+        ))}
       </section>
     </div>
   );

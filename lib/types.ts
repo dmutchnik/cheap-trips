@@ -12,6 +12,8 @@ export type Region = {
   name: string;
   slug: string;
   summary: string;
+  group: "Latin America" | "Caribbean" | "Europe" | "Asia-Pacific";
+  spotlightCities: string[];
 };
 
 export type Airport = {

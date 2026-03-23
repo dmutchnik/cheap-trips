@@ -1,7 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useDeferredValue, useState } from "react";
+import {
+  getDestinationAirportCountForRegions,
+  getRegionAirportIds,
+  getRegionGroups,
+} from "@/lib/data/regions";
 import type { Airport, DealWatch, Region } from "@/lib/types";
 
 export function DealWatchForm({
@@ -34,6 +39,37 @@ export function DealWatchForm({
     initialWatch?.tripLengthMaxDays ?? 7,
   );
   const [maxFareUsd, setMaxFareUsd] = useState(initialWatch?.maxFareUsd ?? 250);
+  const [regionQuery, setRegionQuery] = useState("");
+  const [activeGroup, setActiveGroup] = useState<Region["group"] | "All">("All");
+  const deferredRegionQuery = useDeferredValue(regionQuery);
+  const visibleRegionGroups = getRegionGroups();
+  const normalizedQuery = deferredRegionQuery.trim().toLowerCase();
+  const filteredRegions = regions.filter((region) => {
+    const matchesGroup = activeGroup === "All" || region.group === activeGroup;
+    const matchesQuery =
+      normalizedQuery.length === 0 ||
+      region.name.toLowerCase().includes(normalizedQuery) ||
+      region.summary.toLowerCase().includes(normalizedQuery) ||
+      region.spotlightCities.some((city) => city.toLowerCase().includes(normalizedQuery));
+
+    return matchesGroup && matchesQuery;
+  });
+  const selectedAirportCount = getDestinationAirportCountForRegions(regionIds);
+
+  function toggleRegion(regionId: string, checked: boolean) {
+    setRegionIds((current) =>
+      checked ? [...current, regionId] : current.filter((value) => value !== regionId),
+    );
+  }
+
+  function selectVisibleRegions() {
+    setRegionIds((current) => [...new Set([...current, ...filteredRegions.map((region) => region.id)])]);
+  }
+
+  function clearVisibleRegions() {
+    const visibleIds = new Set(filteredRegions.map((region) => region.id));
+    setRegionIds((current) => current.filter((value) => !visibleIds.has(value)));
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -98,28 +134,81 @@ export function DealWatchForm({
 
       <fieldset>
         <legend>Destination regions</legend>
+        <div className="region-toolbar">
+          <label className="search-field">
+            <span>Search regions</span>
+            <input
+              onChange={(event) => setRegionQuery(event.target.value)}
+              placeholder="Search by region or city"
+              value={regionQuery}
+            />
+          </label>
+          <div className="action-row">
+            <button className="ghost-button" onClick={selectVisibleRegions} type="button">
+              Select visible
+            </button>
+            <button className="ghost-button" onClick={clearVisibleRegions} type="button">
+              Clear visible
+            </button>
+          </div>
+        </div>
+
+        <div className="stats-strip">
+          <div className="metric-card compact">
+            <strong>{regionIds.length}</strong>
+            <p>selected regions</p>
+          </div>
+          <div className="metric-card compact">
+            <strong>{selectedAirportCount}</strong>
+            <p>destination airports covered</p>
+          </div>
+        </div>
+
+        <div className="pill-grid">
+          <label className={`pill ${activeGroup === "All" ? "active" : ""}`}>
+            <input
+              checked={activeGroup === "All"}
+              onChange={() => setActiveGroup("All")}
+              type="radio"
+            />
+            All groups
+          </label>
+          {visibleRegionGroups.map((group) => (
+            <label className={`pill ${activeGroup === group ? "active" : ""}`} key={group}>
+              <input
+                checked={activeGroup === group}
+                onChange={() => setActiveGroup(group)}
+                type="radio"
+              />
+              {group}
+            </label>
+          ))}
+        </div>
+
         <div className="region-grid">
-          {regions.map((region) => {
+          {filteredRegions.map((region) => {
             const checked = regionIds.includes(region.id);
+            const airportCount = getRegionAirportIds(region.id).length;
             return (
               <label className={`region-card ${checked ? "active" : ""}`} key={region.id}>
                 <input
                   checked={checked}
-                  onChange={(event) => {
-                    setRegionIds((current) =>
-                      event.target.checked
-                        ? [...current, region.id]
-                        : current.filter((value) => value !== region.id),
-                    );
-                  }}
+                  onChange={(event) => toggleRegion(region.id, event.target.checked)}
                   type="checkbox"
                 />
+                <span className="status-chip">{region.group}</span>
                 <strong>{region.name}</strong>
                 <span>{region.summary}</span>
+                <small>
+                  {airportCount} airports · {region.spotlightCities.join(", ")}
+                </small>
               </label>
             );
           })}
         </div>
+        {filteredRegions.length === 0 ? (
+          <p className="muted-text">No regions match the current search.</p>
+        ) : null}
       </fieldset>
 
       <div className="field-grid">

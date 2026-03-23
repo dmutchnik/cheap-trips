@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSearchRequests,
+  compactSearchRequests,
   processDealWatch,
   rankCandidates,
   shouldSuppressDuplicate,
@@ -68,6 +69,25 @@ describe("deal watch engine", () => {
     ]);
 
     expect(ranked.map((item) => item.itineraryId)).toEqual(["c", "b", "a"]);
+  });
+
+  it("caps very large watch scans while preserving destination diversity", () => {
+    const largeWatch: DealWatch = {
+      ...watch,
+      originAirportIds: ["mia", "atl", "jfk", "dfw"],
+      regionIds: ["central-america", "south-america", "caribbean-escapes", "iberia-morocco"],
+      departureStart: "2026-04-01",
+      departureEnd: "2026-04-06",
+      tripLengthMinDays: 4,
+      tripLengthMaxDays: 8,
+    };
+
+    const requests = buildSearchRequests(largeWatch);
+    const compacted = compactSearchRequests(requests);
+
+    expect(requests.length).toBeGreaterThan(240);
+    expect(compacted).toHaveLength(240);
+    expect(new Set(compacted.map((request) => request.destinationAirportId)).size).toBeGreaterThan(10);
   });
 
   it("suppresses duplicate route/date matches created within 24 hours", () => {

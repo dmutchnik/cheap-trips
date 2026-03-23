@@ -144,6 +144,11 @@ button {
   padding: 22px;
 }
 
+.metric-card.compact {
+  min-height: 0;
+  padding: 18px;
+}
+
 .metric-card strong {
   display: block;
   font-family: "Trebuchet MS", sans-serif;
@@ -166,7 +171,8 @@ button {
 .dashboard-grid,
 .card-grid,
 .field-grid,
-.region-grid {
+.region-grid,
+.stats-strip {
   display: grid;
   gap: 16px;
 }
@@ -195,6 +201,10 @@ button {
 
 .field-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stats-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 label,
@@ -234,6 +244,18 @@ label span {
   gap: 10px;
 }
 
+.region-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: 14px;
+}
+
+.search-field {
+  max-width: 480px;
+}
+
 .pill,
 .region-card {
   cursor: pointer;
@@ -267,7 +289,13 @@ label span {
 .region-card {
   display: grid;
   gap: 10px;
+  min-height: 188px;
   padding: 18px;
+}
+
+.region-card small {
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .primary-button,
@@ -325,7 +353,12 @@ label span {
   .dashboard-grid,
   .card-grid,
   .field-grid,
-  .region-grid {
+  .region-grid,
+  .stats-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .region-toolbar {
     grid-template-columns: 1fr;
   }
 

@@ -7,7 +7,10 @@ import type {
   DealWatch,
   FlightCandidate,
 } from "@/lib/types";
-import { addDaysDate, enumerateDates, isoNow, unique } from "@/lib/utils";
+import { addDaysDate, chunk, enumerateDates, isoNow, unique } from "@/lib/utils";
+
+const MAX_SEARCH_REQUESTS_PER_WATCH = 240;
+const INDICATIVE_BATCH_SIZE = 24;
 
 export interface FlightProvider {
   searchIndicative(request: DealSearchRequest): Promise<FlightCandidate[]>;
@@ -59,6 +62,59 @@ export function buildSearchRequests(watch: DealWatch): DealSearchRequest[] {
   return requests;
 }
 
+export function compactSearchRequests(requests: DealSearchRequest[]) {
+  if (requests.length <= MAX_SEARCH_REQUESTS_PER_WATCH) {
+    return requests;
+  }
+
+  const buckets = new Map<string, DealSearchRequest[]>();
+  for (const request of requests) {
+    const key = request.destinationAirportId;
+    const current = buckets.get(key);
+    if (current) {
+      current.push(request);
+    } else {
+      buckets.set(key, [request]);
+    }
+  }
+
+  const bucketValues = [...buckets.values()].map((bucket) => [...bucket]);
+  const compacted: DealSearchRequest[] = [];
+  let bucketIndex = 0;
+
+  while (compacted.length < MAX_SEARCH_REQUESTS_PER_WATCH) {
+    const bucket = bucketValues[bucketIndex % bucketValues.length];
+    if (bucket.length > 0) {
+      compacted.push(bucket.shift()!);
+    }
+
+    if (bucketValues.every((current) => current.length === 0)) {
+      break;
+    }
+
+    bucketIndex += 1;
+  }
+
+  return compacted;
+}
+
+async function searchIndicativeInBatches(
+  provider: FlightProvider,
+  requests: DealSearchRequest[],
+) {
+  const batches = chunk(requests, INDICATIVE_BATCH_SIZE);
+  const candidates: FlightCandidate[] = [];
+
+  for (const batch of batches) {
+    const batchResults = await Promise.all(
+      batch.map((request) => provider.searchIndicative(request)),
+    );
+    candidates.push(...batchResults.flat());
+  }
+
+  return candidates;
+}
+
 export function rankCandidates(candidates: FlightCandidate[]) {
   return [...candidates].sort((a, b) => {
     if (a.totalFareUsd !== b.totalFareUsd) {
@@ -96,10 +152,8 @@ export async function processDealWatch(params: {
   userId: string;
 }) {
   const { repository, provider, watch, userId } = params;
-  const requests = buildSearchRequests(watch);
-  const allCandidates = (
-    await Promise.all(requests.map((request) => provider.searchIndicative(request)))
-  ).flat();
+  const requests = compactSearchRequests(buildSearchRequests(watch));
+  const allCandidates = await searchIndicativeInBatches(provider, requests);
   const underThreshold = allCandidates.filter(
     (candidate) => candidate.totalFareUsd <= watch.maxFareUsd,
   );

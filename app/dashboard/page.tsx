@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { RunWatchButton } from "@/components/run-watch-button";
 import { getCurrentUser } from "@/lib/auth";
-import { getAirportById, regions } from "@/lib/data/regions";
+import {
+  getAirportById,
+  getCatalogStats,
+  getDestinationAirportCountForRegions,
+  getRegionById,
+} from "@/lib/data/regions";
 import { getRepository } from "@/lib/repositories";
 import { currency } from "@/lib/utils";
 
@@ -9,6 +14,7 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   const repository = getRepository();
   const dashboard = await repository.getDashboardData(user.userId);
+  const catalogStats = getCatalogStats();
 
   return (
     <div className="dashboard-grid">
@@ -63,17 +69,20 @@ export default async function DashboardPage() {
                 <span className="status-chip">{currency(watch.maxFareUsd)}</span>
                 <strong>
                   {watch.originAirportIds
-                    .map((airportId) => getAirportById(airportId)?.iataCode ?? airportId)
-                    .join(", ")}{" "}
+                  .map((airportId) => getAirportById(airportId)?.iataCode ?? airportId)
+                  .join(", ")}{" "}
                   to{" "}
                   {watch.regionIds
-                    .map((regionId) => regions.find((region) => region.id === regionId)?.name ?? regionId)
+                    .map((regionId) => getRegionById(regionId)?.name ?? regionId)
                     .join(", ")}
                 </strong>
               </div>
               <p>
                 {watch.departureStart} to {watch.departureEnd} · {watch.tripLengthMinDays}-
                 {watch.tripLengthMaxDays} day trips
+              </p>
+              <p className="muted-text">
+                Coverage: {getDestinationAirportCountForRegions(watch.regionIds)} destination airports
               </p>
               <div className="action-row">
                 <Link className="ghost-button" href={`/deal-watches/${watch.id}`}>
@@ -88,6 +97,29 @@ export default async function DashboardPage() {
             <p>No deal watches yet.</p>
           </div>
         )}
+      </section>
+
+      <section className="panel">
+        <div className="section-title">
+          <div>
+            <h2>Network scale</h2>
+            <p>Current catalog coverage available to every new watch.</p>
+          </div>
+        </div>
+        <div className="stats-strip">
+          <div className="metric-card compact">
+            <strong>{catalogStats.totalRegions}</strong>
+            <p>regions</p>
+          </div>
+          <div className="metric-card compact">
+            <strong>{catalogStats.totalDestinationAirports}</strong>
+            <p>destination airports</p>
+          </div>
+          <div className="metric-card compact">
+            <strong>{catalogStats.totalCountries}</strong>
+            <p>countries covered</p>
+          </div>
+        </div>
       </section>
 
       <section className="panel">
